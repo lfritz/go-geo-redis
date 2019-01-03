@@ -21,10 +21,13 @@ Then run the sample app like this:
 go run main.go add
 go run main.go lookup Zurich
 go run main.go find Geneva
+go run main.go export export.csv
 ```
+
+To visualize the data, open http://geojson.io/ and drag `export.csv` onto the map.
 
 
 ## Code
 
-Each of the `connect`, `add`, `lookup` and `find` functions is self-contained code that shows one
-operation on the database.
+Each of the `connect`, `add`, `lookup`, `find` and `export` functions is self-contained code that
+shows one operation on the database.

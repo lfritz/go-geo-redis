@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/go-redis/redis"
@@ -18,6 +20,8 @@ func main() {
 		lookup(client, argument(2))
 	case "find":
 		find(client, argument(2))
+	case "export":
+		export(client, argument(2))
 	case "flush":
 		flushDB(client)
 	default:
@@ -86,6 +90,54 @@ func find(client *redis.Client, name string) {
 	}
 }
 
+func export(client *redis.Client, filename string) {
+	// open CSV file
+	file, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+	w := csv.NewWriter(file)
+
+	// write header and data
+	w.Write([]string{"name", "lat", "lon", "marker-color"})
+	exportLocations(client, w, "cities", "#CD0000")
+	exportLocations(client, w, "peaks", "#0000CD")
+
+	// finish up writing CSV
+	w.Flush()
+	if err := w.Error(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func exportLocations(client *redis.Client, w *csv.Writer, key, color string) {
+	// get all members
+	locations, err := client.ZRange(key, 0, -1).Result()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, name := range locations {
+		// load coordinates
+		positions, err := client.GeoPos(key, name).Result()
+		if err != nil {
+			panic(err)
+		}
+		pos := positions[0]
+
+		// write CSV line
+		err = w.Write([]string{
+			name,
+			fmt.Sprintf("%f", pos.Latitude),
+			fmt.Sprintf("%f", pos.Longitude),
+			color,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func flushDB(client *redis.Client) {
 	// delete all keys
 	err := client.FlushDB().Err()
@@ -101,6 +153,7 @@ func usage() {
 	fmt.Println("	add              add sample data for cities and peaks")
 	fmt.Println("	lookup <city>    look up a city")
 	fmt.Println("	find  <city>     find the peaks closest to a city")
+	fmt.Println("	export <file>    export to CSV file suitable for geojson.io")
 	fmt.Println("	flush            clear database")
 	os.Exit(1)
 }
